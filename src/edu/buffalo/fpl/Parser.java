@@ -58,7 +58,12 @@ public class Parser {
 }
 
 class Program {
-	 
+	/** Test Commit **/
+	public Program() {
+		Decls d = new Decls();
+		Stmts s = new Stmts();
+		Lexer.lex();
+	} 
 }
 
 class Decls {

@@ -75,8 +75,9 @@ class Decls {
 	public Decls() {
 		if(Lexer.nextToken == Token.KEY_INT){
 			identifierList = new Idlist();
+			Lexer.lex();
 		}
-	}	 	 
+	}	 	  
 }
 
 class Stmts {
@@ -84,11 +85,10 @@ class Stmts {
 	Stmts nextStatements;
 	public Stmts(){
 		currStatement = new Stmt();
-		if (Lexer.nextToken == Token.SEMICOLON){
+		if (Lexer.nextToken != Token.RIGHT_BRACE && Lexer.nextToken != Token.KEY_END){
 			nextStatements = new Stmts();
 		}
 	}
-
 }
 
 class Idlist {
@@ -113,19 +113,18 @@ class Stmt {
 	Cond ifStatement;
 	Loop whileLoop;
 	public Stmt (){
-		Lexer.lex();
-		switch (Lexer.nextToken){
-		case Token.ID: 
+		if(Lexer.nextToken == Token.ID) {
 			assignment = new Assign();
-			break;
-		case Token.KEY_IF:
+		}
+
+		if(Lexer.nextToken == Token.KEY_IF) {
+			Lexer.lex();
 			ifStatement = new Cond();
-			break;
-		case Token.KEY_WHILE:
+		}
+
+		if(Lexer.nextToken == Token.KEY_WHILE) {
+			Lexer.lex();
 			whileLoop = new Loop();
-			break;
-		default:
-			break;
 		}
 	}
 } 
@@ -136,8 +135,10 @@ class Assign {
 		char ident = Lexer.ident;
 		Lexer.lex();
 		if (Lexer.nextToken == Token.ASSIGN_OP){
+			Lexer.lex();
 			expression = new Expr();
 			Code.iStore(Idlist.getIDOf(ident));
+			Lexer.lex();
 		}
 	}
 }
@@ -146,7 +147,6 @@ class Cond {
 	Cmpdstmt cmpdStatements1;
 	Rexpr relationalExpr;
 	public Cond(){
-		Lexer.lex();
 		if (Lexer.nextToken == Token.LEFT_PAREN){
 			relationalExpr = new Rexpr();
 			int ifPointer = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
@@ -156,11 +156,12 @@ class Cond {
 				int gotoPtr = Code.getCodePtr();
 				Code.addGoto(false, -1);
 				Code.appendToStatement(ifPointer, Code.getCodePtr());
+				Lexer.lex();
 				cmpdStatements1 = new Cmpdstmt();
 				Code.appendToStatement(gotoPtr, Code.getCodePtr());
 				Lexer.lex();
 			}			
-		}
+		}			
 	}
 }
 
@@ -168,7 +169,6 @@ class Loop {
 	Rexpr relationalExpr;
 	Cmpdstmt cmpdStatements;
 	public Loop(){
-		Lexer.lex();
 		if (Lexer.nextToken == Token.LEFT_PAREN){
 			relationalExpr = new Rexpr();
 			int ptr = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
@@ -182,8 +182,8 @@ class Loop {
 class Cmpdstmt {
 	Stmts statements;
 	public Cmpdstmt(){
-		Lexer.lex();
 		if (Lexer.nextToken == Token.LEFT_BRACE){
+			Lexer.lex();
 			statements = new Stmts();
 		}
 	}
@@ -193,14 +193,17 @@ class Rexpr {
 	Expr expression;
 	private int operator = -1;
 	public Rexpr(){
+		Lexer.lex();
 		expression = new Expr();
 		if (Lexer.nextToken == Token.LESSER_OP || Lexer.nextToken == Token.GREATER_OP ||
 				Lexer.nextToken == Token.ASSIGN_OP || Lexer.nextToken == Token.NOT_EQ){
 			this.operator = Lexer.nextToken;
+			Lexer.lex();
 			expression = new Expr();
+			Lexer.lex();
 		}
 	}
-	
+
 	public int getOperator() {
 		return this.operator;
 	}
@@ -215,6 +218,7 @@ class Expr {
 		term = new Term();
 		if (Lexer.nextToken == Token.ADD_OP || Lexer.nextToken == Token.SUB_OP) {
 			operator = Lexer.nextChar;
+			Lexer.lex();
 			expr = new Expr();
 			Code.addJBOperator(operator);
 		}
@@ -228,9 +232,9 @@ class Term {
 
 	public Term() {
 		factor = new Factor();
-		Lexer.lex();
 		if (Lexer.nextToken == Token.MULT_OP || Lexer.nextToken == Token.DIV_OP) {
 			operation = Lexer.nextChar;
+			Lexer.lex();
 			term = new Term();
 			Code.addJBOperator(operation);
 		}
@@ -242,14 +246,16 @@ class Factor {
 	int i;
 
 	public Factor() {
-		Lexer.lex();
 		switch (Lexer.nextToken) {
 		case Token.ID:
 			Code.iLoad(Idlist.getIDOf(Lexer.ident));
+			Lexer.lex();
 			break;
 		case Token.INT_LIT: // number
-			Code.iPush(Lexer.intValue);
-			break;
+		i = Lexer.intValue;
+		Lexer.lex();
+		Code.iPush(i);
+		break;
 		case Token.LEFT_PAREN: // '('
 			Lexer.lex();
 			e = new Expr();
@@ -265,7 +271,7 @@ class Factor {
 class Code {
 	private static String[] code = new String[100];
 	private static int codeptr = 0;
-	
+
 	public static final String RETURN_STATEMENT = "return";
 	private static final String ISTORE = "istore_";
 	private static final String ICONST = "iconst_";
@@ -274,28 +280,28 @@ class Code {
 	private static final String ILOAD = "iload_";
 	private static final String IFCMP = "if_icmp";
 	private static final String GOTO = "goto";
-	
+
 	public static int getCodePtr() {
 		return codeptr;
 	}
-	
+
 	public static void gen(String genCode) {
 		gen(1, genCode);
 	}
-	
+
 	public static void gen(int increment, String genCode) {
 		code[codeptr] = genCode;
 		codeptr = codeptr + increment;
 	}
-	
+
 	public static void appendToStatement(int lineNumber, int value) {
 		code[lineNumber] += " " + value;
 	}
-	
+
 	public static void iStore(int id) {
 		gen(ISTORE + id);
 	}
-	
+
 	public static void iPush(int value) {
 		if(value >= 0 && value <= 5) {
 			gen(ICONST + value);
@@ -305,11 +311,11 @@ class Code {
 			gen(3, SIPUSH + " " + value);
 		}
 	}
-	
+
 	public static void iLoad(int value) {
 		gen(ILOAD + value);
 	}
-	
+
 	public static void addGoto(boolean isLoop, int iFPointer) {
 		if(isLoop) {
 			gen(3, GOTO + " " + (iFPointer - 2)); //2 iload statements
@@ -318,14 +324,14 @@ class Code {
 			gen(3, GOTO);
 		}
 	}
-	
+
 	public static int addConditionalAndReturnPointer(int operation) {
 		int ptr = codeptr;
 		String byteCode = getIFCMPValue(operation);
 		gen(3, byteCode);
 		return ptr;
 	}
-	
+
 	private static String getIFCMPValue(int operation) {
 		switch (operation) {
 		case Token.GREATER_OP:
@@ -357,7 +363,7 @@ class Code {
 			gen("idiv");
 			break;
 		default: 
-				break;
+			break;
 		}
 	}
 
@@ -367,7 +373,7 @@ class Code {
 				System.out.println(i + ": " + code[i]);
 			}
 	}
-	
+
 	public static boolean isValid(String value) {
 		return value != null && !"".equals(value.trim()) && !"null".equals(value.trim());
 	}

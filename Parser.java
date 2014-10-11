@@ -61,6 +61,7 @@ public class Parser {
 class Program {
 	Stmts statements;
 	Decls declaration;
+	
 	public Program() {
 		declaration = new Decls();
 		statements = new Stmts();
@@ -72,6 +73,7 @@ class Program {
 
 class Decls {
 	Idlist identifierList;
+	
 	public Decls() {
 		if(Lexer.nextToken == Token.KEY_INT){
 			identifierList = new Idlist();
@@ -83,6 +85,7 @@ class Decls {
 class Stmts {
 	Stmt currStatement;
 	Stmts nextStatements;
+	
 	public Stmts(){
 		currStatement = new Stmt();
 		if (Lexer.nextToken != Token.RIGHT_BRACE && Lexer.nextToken != Token.KEY_END){
@@ -93,6 +96,7 @@ class Stmts {
 
 class Idlist {
 	private static List<Character> list = new ArrayList<Character>();
+	
 	public Idlist(){
 		do {
 			Lexer.lex();
@@ -112,6 +116,7 @@ class Stmt {
 	Assign assignment;
 	Cond ifStatement;
 	Loop whileLoop;
+	
 	public Stmt (){
 		if(Lexer.nextToken == Token.ID) {
 			assignment = new Assign();
@@ -119,18 +124,23 @@ class Stmt {
 
 		if(Lexer.nextToken == Token.KEY_IF) {
 			Lexer.lex();
-			ifStatement = new Cond();
+			if (Lexer.nextToken == Token.LEFT_PAREN){
+				ifStatement = new Cond();
+			}
 		}
 
 		if(Lexer.nextToken == Token.KEY_WHILE) {
 			Lexer.lex();
-			whileLoop = new Loop();
+			if (Lexer.nextToken == Token.LEFT_PAREN) {
+				whileLoop = new Loop();
+			}
 		}
 	}
 } 
 
 class Assign {
 	Expr expression;
+	
 	public Assign(){
 		char ident = Lexer.ident;
 		Lexer.lex();
@@ -145,61 +155,67 @@ class Assign {
 
 class Cond {
 	Cmpdstmt cmpdStatements1;
+	Cmpdstmt cmpdStatements2;
 	Rexpr relationalExpr;
+	
 	public Cond(){
-		if (Lexer.nextToken == Token.LEFT_PAREN){
-			relationalExpr = new Rexpr();
-			int ifPointer = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
+		relationalExpr = new Rexpr();
+		int ifPointer = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
+		if (Lexer.nextToken == Token.LEFT_BRACE){
 			cmpdStatements1 = new Cmpdstmt();
+		}
+		Lexer.lex();
+		if (Lexer.nextToken == Token.KEY_ELSE){
+			int gotoPtr = Code.getCodePtr();
+			Code.addGoto(false, -1);
+			Code.appendToStatement(ifPointer, Code.getCodePtr());
 			Lexer.lex();
-			if (Lexer.nextToken == Token.KEY_ELSE){
-				int gotoPtr = Code.getCodePtr();
-				Code.addGoto(false, -1);
-				Code.appendToStatement(ifPointer, Code.getCodePtr());
-				Lexer.lex();
-				cmpdStatements1 = new Cmpdstmt();
-				Code.appendToStatement(gotoPtr, Code.getCodePtr());
-				Lexer.lex();
-			}			
-		}			
+			if (Lexer.nextToken == Token.LEFT_BRACE){
+				cmpdStatements2 = new Cmpdstmt();
+			}
+			Code.appendToStatement(gotoPtr, Code.getCodePtr());
+			Lexer.lex();
+		}		
 	}
 }
 
 class Loop {
 	Rexpr relationalExpr;
 	Cmpdstmt cmpdStatements;
+	
 	public Loop(){
-		if (Lexer.nextToken == Token.LEFT_PAREN){
-			relationalExpr = new Rexpr();
-			int ptr = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
+		relationalExpr = new Rexpr();
+		int ptr = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
+		if (Lexer.nextToken == Token.LEFT_BRACE){
 			cmpdStatements = new Cmpdstmt();
-			Code.addGoto(true, ptr);
-			Lexer.lex();
 		}
+		Code.addGoto(true, ptr);
+		Lexer.lex();		
 	}
 }
 
 class Cmpdstmt {
 	Stmts statements;
+	
 	public Cmpdstmt(){
-		if (Lexer.nextToken == Token.LEFT_BRACE){
-			Lexer.lex();
-			statements = new Stmts();
-		}
+		Lexer.lex();
+		statements = new Stmts();
 	}
 }
 
 class Rexpr {
-	Expr expression;
+	Expr expression1;
+	Expr expression2;
 	private int operator = -1;
+	
 	public Rexpr(){
 		Lexer.lex();
-		expression = new Expr();
+		expression1 = new Expr();
 		if (Lexer.nextToken == Token.LESSER_OP || Lexer.nextToken == Token.GREATER_OP ||
 				Lexer.nextToken == Token.ASSIGN_OP || Lexer.nextToken == Token.NOT_EQ){
 			this.operator = Lexer.nextToken;
 			Lexer.lex();
-			expression = new Expr();
+			expression2 = new Expr();
 			Lexer.lex();
 		}
 	}
@@ -252,10 +268,10 @@ class Factor {
 			Lexer.lex();
 			break;
 		case Token.INT_LIT: // number
-		i = Lexer.intValue;
-		Lexer.lex();
-		Code.iPush(i);
-		break;
+			i = Lexer.intValue;
+			Lexer.lex();
+			Code.iPush(i);
+			break;
 		case Token.LEFT_PAREN: // '('
 			Lexer.lex();
 			e = new Expr();
@@ -265,7 +281,6 @@ class Factor {
 			break;
 		}
 	}
-
 }
 
 class Code {
@@ -335,9 +350,9 @@ class Code {
 	private static String getIFCMPValue(int operation) {
 		switch (operation) {
 		case Token.GREATER_OP:
-			return IFCMP + "ge";
-		case Token.LESSER_OP:
 			return IFCMP + "le";
+		case Token.LESSER_OP:
+			return IFCMP + "ge";
 		case Token.ASSIGN_OP:
 			return IFCMP + "ne";
 		case Token.NOT_EQ:

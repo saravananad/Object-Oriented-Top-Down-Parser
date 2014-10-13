@@ -61,7 +61,7 @@ public class Parser {
 class Program {
 	Stmts statements;
 	Decls declaration;
-	
+
 	public Program() {
 		declaration = new Decls();
 		statements = new Stmts();
@@ -73,7 +73,7 @@ class Program {
 
 class Decls {
 	Idlist identifierList;
-	
+
 	public Decls() {
 		if(Lexer.nextToken == Token.KEY_INT){
 			identifierList = new Idlist();
@@ -85,7 +85,7 @@ class Decls {
 class Stmts {
 	Stmt currStatement;
 	Stmts nextStatements;
-	
+
 	public Stmts(){
 		currStatement = new Stmt();
 		if (Lexer.nextToken != Token.RIGHT_BRACE && Lexer.nextToken != Token.KEY_END){
@@ -96,7 +96,7 @@ class Stmts {
 
 class Idlist {
 	private static List<Character> list = new ArrayList<Character>();
-	
+
 	public Idlist(){
 		do {
 			Lexer.lex();
@@ -116,7 +116,7 @@ class Stmt {
 	Assign assignment;
 	Cond ifStatement;
 	Loop whileLoop;
-	
+
 	public Stmt (){
 		if(Lexer.nextToken == Token.ID) {
 			assignment = new Assign();
@@ -140,7 +140,7 @@ class Stmt {
 
 class Assign {
 	Expr expression;
-	
+
 	public Assign(){
 		char ident = Lexer.ident;
 		Lexer.lex();
@@ -157,7 +157,7 @@ class Cond {
 	Cmpdstmt cmpdStatements1;
 	Cmpdstmt cmpdStatements2;
 	Rexpr relationalExpr;
-	
+
 	public Cond(){
 		relationalExpr = new Rexpr();
 		int ifPointer = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
@@ -176,17 +176,21 @@ class Cond {
 			Code.appendToStatement(gotoPtr, Code.getCodePtr());
 			Lexer.lex();
 		}		
+		else {
+			Code.appendToStatement(ifPointer, Code.getCodePtr());
+		}
 	}
 }
 
 class Loop {
 	Rexpr relationalExpr;
 	Cmpdstmt cmpdStatements;
-	
+
 	public Loop(){
 		relationalExpr = new Rexpr();
 		int ptr = Code.addConditionalAndReturnPointer(relationalExpr.getOperator());
 		if (Lexer.nextToken == Token.LEFT_BRACE){
+			Code.count = Code.countOfOperations;
 			cmpdStatements = new Cmpdstmt();
 		}
 		Code.addGoto(true, ptr);
@@ -196,7 +200,7 @@ class Loop {
 
 class Cmpdstmt {
 	Stmts statements;
-	
+
 	public Cmpdstmt(){
 		Lexer.lex();
 		statements = new Stmts();
@@ -207,8 +211,9 @@ class Rexpr {
 	Expr expression1;
 	Expr expression2;
 	private int operator = -1;
-	
+
 	public Rexpr(){
+		Code.countOfOperations = 0;
 		Lexer.lex();
 		expression1 = new Expr();
 		if (Lexer.nextToken == Token.LESSER_OP || Lexer.nextToken == Token.GREATER_OP ||
@@ -264,10 +269,12 @@ class Factor {
 	public Factor() {
 		switch (Lexer.nextToken) {
 		case Token.ID:
+			Code.countOfOperations++;
 			Code.iLoad(Idlist.getIDOf(Lexer.ident));
 			Lexer.lex();
 			break;
 		case Token.INT_LIT: // number
+			Code.countOfOperations++;
 			i = Lexer.intValue;
 			Lexer.lex();
 			Code.iPush(i);
@@ -286,6 +293,8 @@ class Factor {
 class Code {
 	private static String[] code = new String[100];
 	private static int codeptr = 0;
+	public static int countOfOperations = 0;
+	public static int count = 0;
 
 	public static final String RETURN_STATEMENT = "return";
 	private static final String ISTORE = "istore_";
@@ -333,7 +342,7 @@ class Code {
 
 	public static void addGoto(boolean isLoop, int iFPointer) {
 		if(isLoop) {
-			gen(3, GOTO + " " + (iFPointer - 2)); //2 iload statements
+			gen(3, GOTO + " " + (iFPointer - count)); 
 			appendToStatement(iFPointer, codeptr);
 		} else {
 			gen(3, GOTO);
@@ -364,6 +373,7 @@ class Code {
 	}
 
 	public static void addJBOperator(char op) {
+		countOfOperations++;
 		switch(op) {
 		case '+' : 
 			gen("iadd");

@@ -116,24 +116,30 @@ class Stmt {
 	Assign assignment;
 	Cond ifStatement;
 	Loop whileLoop;
-
+	Stmts st;
 	public Stmt (){
-		if(Lexer.nextToken == Token.ID) {
+		switch(Lexer.nextToken){
+		case Token.ID : 
+		{
 			assignment = new Assign();
 		}
-
-		if(Lexer.nextToken == Token.KEY_IF) {
+		break;
+		case Token.KEY_IF: 
+		{
 			Lexer.lex();
 			if (Lexer.nextToken == Token.LEFT_PAREN){
 				ifStatement = new Cond();
 			}
 		}
-
-		if(Lexer.nextToken == Token.KEY_WHILE) {
+		break;
+		case Token.KEY_WHILE:
+		{
 			Lexer.lex();
 			if (Lexer.nextToken == Token.LEFT_PAREN) {
 				whileLoop = new Loop();
 			}
+		}
+		break;
 		}
 	}
 } 

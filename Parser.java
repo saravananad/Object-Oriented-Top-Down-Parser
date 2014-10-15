@@ -116,7 +116,7 @@ class Stmt {
 	Assign assignment;
 	Cond ifStatement;
 	Loop whileLoop;
-	Stmts st;
+	
 	public Stmt (){
 		switch(Lexer.nextToken){
 		case Token.ID : 
